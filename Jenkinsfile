@@ -1,23 +1,63 @@
 pipeline {
   agent any
   stages {
-    stage('build') {
+    stage('Build') {
       steps {
-        echo "build"
+        sh 'mvn install'
       }
     }
 
-    stage('UTs') {
+    stage('Unit Test') {
       steps {
-        echo "echo UTs"
+        sh 'mvn test'
       }
     }
 
-    stage('deploy') {
-      steps {
-        echo "deploy"
-      }
-    }
+    stage('Deployment') {
+      parallel {
+        stage('Deployment') {
+          steps {
+            sh 'mvn spring-boot:run'
+          }
+        }
 
+        stage('Functional Test') {
+          steps {
+            sh '''#!/bin/bash
+          status=0
+          successStatus=1 
+          code=200
+          while [ $status != $successStatus ]; do
+         httpCode=$(curl -s --head -w %{http_code} http://localhost:3456 -o /dev/null)
+           if [ $httpCode -eq $code ]; then
+           echo "url worked"
+            status=1
+          else
+            	echo "url not working yet"
+          	sleep 20
+           fi
+          done
+          echo "status is:"
+          echo $status
+              if [ $status -eq $successStatus ]; then
+                 echo "UI test running"
+                 mvn test
+              else
+                 echo "UI test not running"
+               fi'''
+          }
+        }
+        
+        
+
+      }
+      
+    }
+    
+    
+
+  }
+  tools {
+    maven 'my Maven'
   }
 }
